@@ -28,8 +28,6 @@ GxEPD2_BW<GxEPD2_154, GxEPD2_154::HEIGHT> display(GxEPD2_154(/*CS=D8*/ SS, /*DC=
 
 // #include "GxEPD2_boards_added.h"
 
-
-
 #include "DHTesp.h"
 
 #ifdef ESP32
@@ -39,7 +37,7 @@ GxEPD2_BW<GxEPD2_154, GxEPD2_154::HEIGHT> display(GxEPD2_154(/*CS=D8*/ SS, /*DC=
 
 DHTesp dht;
 
-#define long SLEEP_15M = 15*60*1000000; 
+#define SLEEP_15M   15*60*1000000  
 
 /**
  * in setup, we start the serial (for debugging reasons) 
@@ -86,14 +84,17 @@ void loop()
   // we immediately turn display off to save power.
   display.powerOff();
 
-  // sleep is set to 15m 
-  int sleepTimeS = 15*60;
+
   // deep sleep is asking for RF to be off when waking as we do not use it.
-  ESP.deepSleep(sleepTimeS * 1000000, WAKE_RF_DISABLED);
+  ESP.deepSleep(SLEEP_15M, WAKE_RF_DISABLED);
   
 
 }
 
+/**
+ * custom paint message function, has x,y,w,h for a rectangle, option to do a partial or full screen refresh,
+ * option to do a clear screen and print either *C or % for the temp/humidity value.
+ */
 void paintRectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h, bool partial, bool clearScreen,
                     uint16_t tx, uint16_t ty, String text, bool printCvalue)
 {
@@ -113,6 +114,7 @@ void paintRectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h, bool partial
   do
   {
     if (clearScreen) display.fillScreen(GxEPD_WHITE);
+    //two lines below draw a 2px rectangle at x,y
     display.fillRect(x, y, w, h, GxEPD_BLACK);
     display.fillRect(x+2, y+2, w-4, h-4, GxEPD_WHITE);    
 
