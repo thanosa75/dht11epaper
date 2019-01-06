@@ -17,7 +17,9 @@
 
 #include <GxEPD2_BW.h>
 #include <GxEPD2_3C.h>
-#include <Fonts/FreeMonoBold9pt7b.h>
+#include <Fonts/FreeSans9pt7b.h>
+#include <Fonts/FreeSansBold9pt7b.h>
+
 #include <Fonts/FreeMonoBold24pt7b.h>
 
 #if defined (ESP8266)
@@ -37,7 +39,9 @@ GxEPD2_BW<GxEPD2_154, GxEPD2_154::HEIGHT> display(GxEPD2_154(/*CS=D8*/ SS, /*DC=
 
 DHTesp dht;
 
-#define SLEEP_15M   15*60*1000000  
+#define SLEEP_20M   20*60*1000000  
+ADC_MODE(ADC_VCC);
+
 
 /**
  * in setup, we start the serial (for debugging reasons) 
@@ -62,14 +66,20 @@ void loop()
   float humidity = 0.0;
   float temperature = 0.0;
   String status = dht.getStatusString();
-    
+
+  delay(500); //sleep for 0.5 for voltage to stabilize
+  float voltage=0.00f;
+  const float adc_correction = 0.00f;
+  voltage  = ESP.getVcc()/1000.0+adc_correction;
+  Serial.print(voltage);
+  Serial.println(" V");    
   do {
     // we delay for the sensor to have proper readings
     delay(dht.getMinimumSamplingPeriod()*2);
     humidity = dht.getHumidity();
     temperature = dht.getTemperature();
     status = dht.getStatusString();
-    Serial.print(status + " ");
+    Serial.println(status + " ");
     Serial.print((int)temperature); Serial.print(" *C, "); 
     Serial.print((int)humidity); Serial.println(" H");
     // this loop will retry if the status string is not OK
@@ -77,17 +87,41 @@ void loop()
 
   // init the display
   display.init(115200);
-  // 1st paint is not partial (false) and clear screen (true)
-  paintRectangle(2, 4, display.width() - 4, (display.height()/2) - 8, false, true, 8, 58, String((int)temperature), true); //partial, clearscreen / true = C
-  // 2nd paint is a partial (true) and not a clear (false)
-  paintRectangle(2, (display.height()/2)+4, display.width() - 4, (display.height()/2) - 8, true, false, 8, 158, String((int)humidity), false);
+  display.setFullWindow();
+  display.firstPage();
+  display.fillScreen(GxEPD_WHITE);
+  paintTempHum(2, 4, display.width() - 4, (display.height()/2) - 8,  8, 58, String((int)temperature), true); 
+  paintTempHum(2, (display.height()/2)+4, display.width() - 4, (display.height()/2) - 8,  8, 158, String((int)humidity), false);
+  printVoltage(2, display.height()-16, voltage);
+  display.nextPage();
   // we immediately turn display off to save power.
   display.powerOff();
 
 
   // deep sleep is asking for RF to be off when waking as we do not use it.
-  ESP.deepSleep(SLEEP_15M, WAKE_RF_DISABLED);
+  ESP.deepSleep(SLEEP_20M, WAKE_RF_DISABLED);
+  //delay(5000);
   
+
+}
+
+void printVoltage(uint16_t x, uint16_t y, float voltage) {
+  
+  display.setFont(&FreeSans9pt7b);
+  display.setCursor(x,y+6);
+  display.print("VCC: ");
+  display.print(voltage);
+  display.print("V");
+
+  if (voltage < 2.6) {
+    display.print("  [LOW]");
+  }
+}
+
+void paintBox(uint16_t x, uint16_t y, uint16_t w, uint16_t h){
+
+    display.fillRect(x, y, w, h, GxEPD_BLACK);
+    display.fillRect(x+2, y+2, w-4, h-4, GxEPD_WHITE);    
 
 }
 
@@ -95,38 +129,30 @@ void loop()
  * custom paint message function, has x,y,w,h for a rectangle, option to do a partial or full screen refresh,
  * option to do a clear screen and print either *C or % for the temp/humidity value.
  */
-void paintRectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h, bool partial, bool clearScreen,
+void paintTempHum(uint16_t x, uint16_t y, uint16_t w, uint16_t h,
                     uint16_t tx, uint16_t ty, String text, bool printCvalue)
 {
   display.setRotation(1);
-  display.setFont(&FreeMonoBold24pt7b);
   display.setTextColor(GxEPD_BLACK);
+  //paintBox(x,y,w,h);
   
-  if (partial)
-  {
-    display.setPartialWindow(x, y, w, h);
+  display.setFont(&FreeSansBold9pt7b);
+  display.setCursor(x,y+10);
+  if (printCvalue) {
+    display.print("Temperature");
+  } else {
+    display.print("Humidity");
   }
-  else
-  {
-    display.setFullWindow();
-  }
-  display.firstPage();
-  do
-  {
-    if (clearScreen) display.fillScreen(GxEPD_WHITE);
-    //two lines below draw a 2px rectangle at x,y
-    display.fillRect(x, y, w, h, GxEPD_BLACK);
-    display.fillRect(x+2, y+2, w-4, h-4, GxEPD_WHITE);    
 
-    display.setCursor(tx, ty);
+  
+  display.setFont(&FreeMonoBold24pt7b);
+  display.setCursor(tx, ty);
 
-    display.print(" ");
-    display.print(text);
-    if (printCvalue) {
-      display.print(" *C");
-    } else {
-      display.print("  %");
-    }
+  display.print("   ");
+  display.print(text);
+  if (printCvalue) {
+    display.print("C");
+  } else {
+    display.print("%");
   }
-  while (display.nextPage());
 }
