@@ -109,7 +109,7 @@ void loop()
   float pressure = bme.readPressure() / 100.0F;
 
 
-  const float adc_correction = 1.71f;
+  const float adc_correction = 1.40f;
   float voltage  = ESP.getVcc() / 1000.0 + adc_correction;
   
   // init the display
